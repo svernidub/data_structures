@@ -8,7 +8,8 @@ fn test_initialization_creates_empty_directory() {
 
     let _ = lsm_three("test_initialization_creates_empty_directory");
 
-    let expected_content = vec![format!("{path}/level1")];
+    let expected_content = vec![format!("{path}/state"), format!("{path}/level0")];
+
     let actual_content: Vec<_> = std::fs::read_dir(path)
         .unwrap()
         .map(|entry| entry.unwrap().path().to_string_lossy().into_owned())
@@ -33,7 +34,7 @@ fn test_simple_insert_and_get() {
 
 #[test]
 fn test_memtable_never_exceeds_configured_size_while_all_data_is_accessible() {
-    let mut tree = lsm_three("memtable_never_exceeds_configured_size");
+    let mut tree = lsm_three("test_memtable_never_exceeds_configured_size");
 
     for i in 0..1000 {
         tree.insert(format!("key_{i}"), format!("value_{i}"))
@@ -67,7 +68,7 @@ fn test_no_reads_in_unrequired_ss_tables() {
 
     for table in 1..10 {
         std::fs::remove_file(format!(
-            "target/test_no_reads_in_unrequired_ss_tables/level1/{table}.data"
+            "target/test_no_reads_in_unrequired_ss_tables/level0/{table}.data"
         ))
         .unwrap();
     }
@@ -77,6 +78,26 @@ fn test_no_reads_in_unrequired_ss_tables() {
     // Just to ensure that other ss tables are deleted
     let key = "key_700".to_string();
     assert!(tree.get(&key).is_err());
+}
+
+#[test]
+fn load_tree() {
+    let mut tree = lsm_three("test_no_reads_in_unrequired_ss_tables");
+
+    for i in 0..1000 {
+        tree.insert(format!("key_{i}"), format!("value_{i}"))
+            .unwrap();
+    }
+
+    tree.flush().unwrap();
+
+    let tree =
+        LsmTree::<String, String>::load("target/test_no_reads_in_unrequired_ss_tables".to_string())
+            .unwrap();
+
+    let value = tree.get(&"key_12".to_string()).unwrap();
+
+    assert_eq!(value, Some("value_12".to_string()));
 }
 
 fn lsm_three(test_name: &str) -> LsmTree<String, String> {

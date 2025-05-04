@@ -49,11 +49,11 @@ where
     K: Hash + Clone + Ord + bincode::Encode + bincode::Decode<()>,
     V: bincode::Encode + bincode::Decode<()>,
 {
-    pub fn create_from_data(
+    pub fn new(
         data: BTreeMap<K, V>,
         table_path: &str,
         block_size: usize,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<Self, Box<dyn Error>> {
         let mut data_writer = BufWriter::new(File::create(format!("{table_path}.data"))?);
 
         let mut bloom_filter = BloomFilter::new(data.len(), 0.1);
@@ -91,7 +91,12 @@ where
         Self::serialize_on_disk(&block_index, format!("{table_path}.idx"))?;
         Self::serialize_on_disk(&bloom_filter, format!("{table_path}.bloom"))?;
 
-        Ok(())
+        Ok(Self {
+            bloom_filter,
+            block_index,
+            table_data_path: format!("{table_path}.data"),
+            _marker: Default::default(),
+        })
     }
 
     pub fn load(table_path: String) -> Result<Self, Box<dyn Error>> {

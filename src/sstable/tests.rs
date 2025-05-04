@@ -67,8 +67,7 @@ fn ss_table(name: &str) -> SsTable<String, String> {
         data.insert(format!("key_{i}"), format!("value_{i}"));
     }
 
-    SsTable::<String, String>::create_from_data(data, format!("target/{name}").as_str(), 10)
-        .unwrap();
+    SsTable::<String, String>::new(data, format!("target/{name}").as_str(), 10).unwrap();
 
     SsTable::<String, String>::load(format!("target/{name}")).unwrap()
 }
