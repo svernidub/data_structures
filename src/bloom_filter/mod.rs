@@ -1,12 +1,13 @@
 #[cfg(test)]
 mod tests;
 
+use crate::bit_map::BitMap;
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
     marker::PhantomData,
 };
 
-/// Probabilistic structure that allows to identify if we have probably meet some element of a set
+/// Probabilistic structure that allows to identify if we have probably met some element of a set
 /// before.
 ///
 /// If the filter negatively responds to contains we can be 100% sure that the value was not added
@@ -20,9 +21,9 @@ use std::{
 ///
 /// The real underlying data structure size depends on planned capacity, but may be less or even
 /// bigger than planned capacity.
-#[derive(Debug)]
+#[derive(Debug, bincode::Encode, bincode::Decode)]
 pub struct BloomFilter<T> {
-    filter: Vec<u8>,
+    filter: BitMap,
     hash_functions: usize,
     _phantom: PhantomData<T>,
 }
@@ -35,12 +36,10 @@ impl<T> BloomFilter<T> {
         let bits =
             (-1.0 * planned_capacity * false_positives_probability.ln()) / 2_f64.ln().powf(2.0);
 
-        let bytes = (bits / 8.0).ceil() as usize;
-
         let hash_functions = (bits / planned_capacity * 2_f64.ln()).ceil() as usize;
 
         Self {
-            filter: vec![0; bytes],
+            filter: BitMap::new(bits as usize),
             hash_functions,
             _phantom: Default::default(),
         }
@@ -53,19 +52,19 @@ where
 {
     pub fn add(&mut self, item: T) {
         let bit_indexes =
-            Self::get_byte_index_and_mask_pairs(self.hash_functions, self.filter.len(), &item);
+            Self::get_bit_index_iter(self.hash_functions, self.filter.bit_size(), &item);
 
-        for (byte_index, bit_mask) in bit_indexes {
-            self.filter[byte_index] |= bit_mask;
+        for bit_index in bit_indexes {
+            self.filter.set(bit_index);
         }
     }
 
     pub fn contains(&self, item: &T) -> bool {
         let bit_indexes =
-            Self::get_byte_index_and_mask_pairs(self.hash_functions, self.filter.len(), item);
+            Self::get_bit_index_iter(self.hash_functions, self.filter.bit_size(), item);
 
-        for (byte_index, bit_mask) in bit_indexes {
-            if self.filter[byte_index] & bit_mask == 0 {
+        for bit_index in bit_indexes {
+            if !self.filter.is_set(bit_index) {
                 return false;
             }
         }
@@ -73,27 +72,18 @@ where
         true
     }
 
-    fn get_byte_index_and_mask_pairs(
+    fn get_bit_index_iter(
         functions: usize,
-        size: usize,
+        filter_len: usize,
         item: &T,
-    ) -> impl Iterator<Item = (usize, u8)> {
-        let bit_size = size * 8;
-
+    ) -> impl Iterator<Item = usize> {
         (0..functions).map(move |i| {
             let mut hasher = DefaultHasher::new();
 
             item.hash(&mut hasher);
             i.hash(&mut hasher);
 
-            Self::bit_index_to_byte_index_and_mask(hasher.finish() as usize % bit_size)
+            hasher.finish() as usize % filter_len
         })
-    }
-
-    fn bit_index_to_byte_index_and_mask(bit_index: usize) -> (usize, u8) {
-        let bit_in_byte = (bit_index % 8) as u8;
-        let bit_n = (1 << bit_in_byte) as u8;
-
-        (bit_index / 8, bit_n)
     }
 }

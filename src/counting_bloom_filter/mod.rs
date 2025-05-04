@@ -57,7 +57,7 @@ where
     }
 
     pub fn contains(&self, item: &T) -> bool {
-        let indexes = Self::get_indexes(self.hash_functions, self.filter.len(), &item);
+        let indexes = Self::get_indexes(self.hash_functions, self.filter.len(), item);
 
         for index in indexes {
             if self.filter[index] == Default::default() {
@@ -69,7 +69,7 @@ where
     }
 
     pub fn remove(&mut self, item: &T) -> bool {
-        let indexes = Self::get_indexes(self.hash_functions, self.filter.len(), &item);
+        let indexes = Self::get_indexes(self.hash_functions, self.filter.len(), item);
 
         for index in indexes.clone() {
             if self.filter[index] == Default::default() {
