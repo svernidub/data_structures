@@ -147,7 +147,7 @@ where
 
         data_reader.seek(SeekFrom::Start(*pos))?;
 
-        while stop_search.is_none() || Some(data_reader.stream_position()?) < stop_search {
+        while stop_search.is_none() || Some(data_reader.stream_position()?) <= stop_search {
             let result = bincode::decode_from_reader::<(K, V), _, _>(
                 &mut data_reader,
                 bincode::config::standard(),
@@ -158,6 +158,7 @@ where
                     continue;
                 }
                 Ok((_, value)) => return Ok(Some(value)),
+                Err(e) if e.to_string().contains("UnexpectedEof") => return Ok(None),
                 Err(e) => return Err(Box::new(e)),
             }
         }
